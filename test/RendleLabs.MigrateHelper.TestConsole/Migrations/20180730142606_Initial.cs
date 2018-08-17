@@ -1,9 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 namespace RendleLabs.EntityFrameworkCore.MigrateHelper.TestConsole.Migrations
 {
-    public partial class Foo : Migration
+    public partial class Initial : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -11,9 +11,9 @@ namespace RendleLabs.EntityFrameworkCore.MigrateHelper.TestConsole.Migrations
                 name: "Foos",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int4", nullable: false)
+                    Id = table.Column<int>(nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn),
-                    Name = table.Column<string>(type: "varchar(256)", maxLength: 256, nullable: true)
+                    Name = table.Column<string>(maxLength: 256, nullable: true)
                 },
                 constraints: table =>
                 {

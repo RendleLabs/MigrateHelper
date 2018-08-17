@@ -6,7 +6,7 @@ namespace RendleLabs.EntityFrameworkCore.MigrateHelper.TestConsole
 {
     public class DesignTimeFooContextFactory : IDesignTimeDbContextFactory<FooContext>
     {
-        public const string LocalPostgres = "Host=localhost;Database=foo;Username=vids;Password=secretsquirrel";
+        public const string LocalPostgres = "Host=localhost;Database=mighelp;Username=mig;Password=secretsquirrel";
         public static readonly string MigrationAssemblyName =
             typeof(DesignTimeFooContextFactory).Assembly.GetName().Name;
 

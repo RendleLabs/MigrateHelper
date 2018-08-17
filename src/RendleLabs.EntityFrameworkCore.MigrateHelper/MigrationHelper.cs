@@ -38,7 +38,7 @@ namespace RendleLabs.EntityFrameworkCore.MigrateHelper
         /// </summary>
         /// <param name="args">Parameters from the Program <c>Main</c> method.</param>
         /// <returns></returns>
-        public async Task TryMigrate(string[] args, params (string key,string value)[] tags)
+        public async Task TryMigrate(string[] args)
         {
             var context = Context(args) ?? new DesignTimeContextFactoryHelper(Assembly.GetEntryAssembly()).CreateContext(args);
             using (context)
@@ -49,16 +49,72 @@ namespace RendleLabs.EntityFrameworkCore.MigrateHelper
             }
         }
 
-        private async Task TryRunMigration(DbContext context)
+        public async Task TryMigrate<T>(string[] args, Func<T, Task> postMigrateCallback) where T : DbContext
+        {
+            if (postMigrateCallback == null) throw new ArgumentNullException(nameof(postMigrateCallback));
+
+            T typedContext;
+
+            try
+            {
+                typedContext = TryCreateTypedContext<T>(args);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(EventIds.InvalidContextType, ex, ex.Message);
+                throw;
+            }
+            
+            using (typedContext)
+            {
+                await TryConnect(typedContext);
+
+                if (await TryRunMigration(typedContext))
+                {
+                    // Only run the callback if the Migration actually ran, rather than failing with already run.
+                    await TryRunCallback(typedContext, postMigrateCallback);
+                }
+            }
+        }
+
+        private T TryCreateTypedContext<T>(string[] args) where T : DbContext
+        {
+            var context = Context(args) ?? new DesignTimeContextFactoryHelper(Assembly.GetEntryAssembly()).CreateContext(args);
+            if (!(context is T typedContext))
+            {
+                var message = $"Incorrect DbContext type. Expected {typeof(T).FullName} but was {context.GetType().FullName}.";
+                throw new InvalidOperationException(message);
+            }
+
+            return typedContext;
+        }
+
+        private async Task TryRunCallback<T>(T context, Func<T, Task> callback)
+        {
+            try
+            {
+                await callback(context);
+                _logger.LogInformation("Post-Migration callback ran successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(EventIds.PostMigrateCallbackFailed, ex, "Post-migration callback failed: {message}", ex.Message);
+                throw;
+            }
+        }
+
+        private async Task<bool> TryRunMigration(DbContext context)
         {
             try
             {
                 await context.Database.MigrateAsync();
+                _logger.LogInformation("Migration ran successfully.");
+                return true;
             }
             catch (Exception ex)
             {
-                // Ignored
-                _logger.LogError(EventIds.MigrationFailed, ex, "Migration failed to run: {message}", ex.Message);
+                _logger.LogWarning(EventIds.MigrationFailed, ex, "Migration failed to run: {message}", ex.Message);
+                return false;
             }
         }
 
@@ -67,7 +123,7 @@ namespace RendleLabs.EntityFrameworkCore.MigrateHelper
             try
             {
                 await Policy
-                    .Handle<DbException>(ex =>
+                    .Handle<Exception>(ex =>
                     {
                         _logger.LogWarning(EventIds.MigrationTestConnectFailed, ex, "TryMigrate test connect failed: '{message}'. Retrying...", ex.Message);
                         return true;
